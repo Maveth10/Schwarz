@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Dane ładowarek</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    #search {
+      margin-bottom: 20px;
+      padding: 8px;
+      width: 300px;
+      font-size: 16px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    td.copyable {
+      cursor: pointer;
+      color: #007bff;
+      text-decoration: underline;
+      position: relative;
+    }
+    .copied-message {
+      position: absolute;
+      top: -20px;
+      left: 0;
+      background-color: #28a745;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <h1>Dane ładowarek</h1>
+  <input type="text" id="search" placeholder="Wpisz frazę do wyszukania..." onkeyup="filterTable()">
+  <table id="data-table">
+    <thead></thead>
+    <tbody id="table-body"></tbody>
+  </table>
+
+  <script>
+    function myCallback(data) {
+      console.log("Otrzymane dane:", data);
+      if (!data || data.length === 0) {
+        console.warn("Brak danych. Sprawdź arkusz i publikację skryptu.");
+        return;
+      }
+      populateTable(data);
+      document.getElementById('search').focus();
+    }
+
+    function populateTable(data) {
+      const tableHead = document.querySelector("#data-table thead");
+      const tableBody = document.getElementById("table-body");
+
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+
+      const headers = Object.keys(data[0]);
+      const headerRow = document.createElement("tr");
+
+      headers.forEach(function (key) {
+        const th = document.createElement("th");
+        th.textContent = key;
+        headerRow.appendChild(th);
+      });
+
+      tableHead.appendChild(headerRow);
+
+      data.forEach(function (item) {
+        const tr = document.createElement("tr");
+
+        headers.forEach(function (key) {
+          const td = document.createElement("td");
+          td.textContent = item[key];
+
+          if (["IP", "Password", "ChargerID"].includes(key)) {
+            td.classList.add("copyable");
+            td.setAttribute("data-copy", item[key]);
+
+            // Dodaj element komunikatu
+            const msg = document.createElement("span");
+            msg.className = "copied-message";
+            msg.innerText = "Skopiowano!";
+            td.appendChild(msg);
+
+            td.addEventListener("click", function (e) {
+              // Obsługa kopiowania: najpierw próbujemy clipboard API, potem execCommand
+              copyText(item[key], td);
+            });
+          }
+
+          tr.appendChild(td);
+        });
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function copyText(text, td) {
+      console.log("Próba kopiowania:", text);
+      if (navigator.clipboard && window.isSecureContext) {
+        // Użycie clipboard API
+        navigator.clipboard.writeText(text).then(() => {
+          showCopiedMessage(td);
+          console.log("Tekst skopiowany przy użyciu clipboard API.");
+        }).catch(err => {
+          console.error("Clipboard API błąd:", err);
+          fallbackCopyTextToClipboard(text, td);
+        });
+      } else {
+        // Fallback na execCommand
+        fallbackCopyTextToClipboard(text, td);
+      }
+    }
+
+    function fallbackCopyTextToClipboard(text, td) {
+      // Tworzymy tymczasowy element textarea
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      // Ukrywamy go, aby nie wpływał na układ strony
+      textArea.style.position = "fixed";
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      try {
+        const successful = document.execCommand("copy");
+        console.log("Fallback kopiowanie: " + (successful ? "udane" : "nieudane"));
+        showCopiedMessage(td);
+      } catch (err) {
+        console.error("Fallback kopiowanie błąd:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+
+    function showCopiedMessage(td) {
+      const msg = td.querySelector(".copied-message");
+      if (msg) {
+        msg.style.display = "block";
+        setTimeout(() => {
+          msg.style.display = "none";
+        }, 1000);
+      }
+    }
+
+    function filterTable() {
+      const input = document.getElementById('search').value.toLowerCase();
+      const rows = document.querySelectorAll('#table-body tr');
+      rows.forEach(function (row) {
+        const rowText = row.textContent.toLowerCase();
+        row.style.display = rowText.includes(input) ? '' : 'none';
+      });
+    }
+
+    // Ładowanie danych przy pomocy JSONP
+    (function () {
+      const script = document.createElement('script');
+      script.src = 'https://script.google.com/macros/s/AKfycbxI7lO0NlA5z1jmLaJOlBWOKgtsFp98KNqToUT7qSA/exec?callback=myCallback';
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>
